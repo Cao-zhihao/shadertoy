@@ -5,7 +5,7 @@
 
 vec2 fixuv(in vec2 c)
 {
-    return (c.xy / iResolution.xy - .5);
+    return (c - iResolution.xy * .5) / min(iResolution.x,iResolution.y);
 }
 
 float sdfPlane(vec3 p){
@@ -238,8 +238,8 @@ vec3 calLightColor(vec3 rd,vec3 p,vec3 n,vec3 lp,vec3 lc){
         return col;
 }
 
-vec3 rayMatchColor(in vec3 ro,in vec3 rd,out vec3 p,out vec3 n){
-    vec3 col = vec3(0.5 + 0.5*cos(iTime+vec3(0,2,4)));
+vec3 rayMatchColor(in vec3 ro,in vec3 rd,in vec2 uv,out vec3 p,out vec3 n){
+    vec3 col = vec3(0.5 + 0.5*cos(iTime + uv.xyx + vec3(0,2,4)));
     vec2 d = rayMatch(ro,rd);
     if(d.x <= 40.0){
         col = vec3(0.);
@@ -261,7 +261,7 @@ vec3 rayMatchColor(in vec3 ro,in vec3 rd,out vec3 p,out vec3 n){
 void mainImage(out vec4 fragColor, in vec2 fragCoord)
 {
     vec2 uv = fixuv(fragCoord);
-    uv.x = uv.x * iResolution.x / iResolution.y;
+    //uv.x = uv.x * iResolution.x / iResolution.y;
     vec3 col = vec3(0.);
     for(int m=0; m<AA; m++)
     {
@@ -269,11 +269,11 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
         {
             vec2 offset = 2.*(vec2(float(m),float(o))/float(AA) - 0.5);
             vec2 uv = fixuv(fragCoord + offset);
-            uv.x = uv.x * iResolution.x / iResolution.y;
+            //uv.x = uv.x * iResolution.x / iResolution.y;
             vec2 px = fixuv(fragCoord + vec2(1.,0.) + offset);
-            px.x = px.x * iResolution.x / iResolution.y;
+            //px.x = px.x * iResolution.x / iResolution.y;
             vec2 py = fixuv(fragCoord + vec2(0.,1.) + offset);
-            py.x = py.x * iResolution.x / iResolution.y;//去摩尔纹的关键在这两步
+            //py.x = py.x * iResolution.x / iResolution.y;//去摩尔纹的关键在这两步
             float t = iTime * 0.2;
             vec3 ro = vec3(8. * cos(t),3.0,8. * sin(t));
             if (iMouse.z > 0.01)
@@ -284,13 +284,13 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             vec3 rd = setCamera(vec3(0.,0.,0.),ro,0.) * vec3(uv,1.);
             vec3 p;
             vec3 n;
-            col += rayMatchColor(ro,rd,p,n);
+            col += rayMatchColor(ro,rd,uv,p,n);
             if(map(p).y > 4.9&&map(p).y <6.1){
                 vec3 rro = p + n * 0.002;
                 vec3 rrd = normalize(reflect(normalize(rd),n));
                 vec3 pp;
                 vec3 nn;
-                vec3 rColor = rayMatchColor(rro,rrd,pp,nn) * 0.618;
+                vec3 rColor = rayMatchColor(rro,rrd,uv,pp,nn) * 0.618;
                 col += rColor;
             }
             vec3 ta =vec3(0.);
@@ -301,6 +301,8 @@ void mainImage(out vec4 fragColor, in vec2 fragCoord)
             vec3 ddx = ro.y *  (rd/rd.y - rdx/rdx.y);
             vec3 ddy = ro.y * (rd/rd.y - rdy/rdy.y);
             vec3 c = vec3(.01) + vec3(.5)*checkersGrad(p.xz,ddx.xz,ddy.xz);
+            float amb = 2. + 0.5 * dot(n,vec3(0.,1.,0.));
+            c *= amb;
             col += c;
             }
         }
